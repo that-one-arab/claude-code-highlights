@@ -1,14 +1,18 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register } from 'claude-code'
+import type { EngineInterface, Register, RenderInput } from 'claude-code'
 
 import type { Highlight } from '../types'
+import { rows, segments } from './match'
 
 const KEY = 'highlights'
 const PANE = 'highlights'
+const FLASH_MS = 1500
 
-// This session's highlights, drawn by the pane; the store holds every session's.
+// This session's highlights, drawn by the pane and the message rows; the store holds every session's.
 const list = atom({ plugin: 'highlights', key: 'list' } as const, [], { shape: 'hl-1' })
 const selected = atom({ plugin: 'highlights', key: 'selected' } as const, null)
+// The highlight lit up after a jump, for FLASH_MS.
+const flash = atom({ plugin: 'highlights', key: 'flash' } as const, null)
 
 const readAll = async ($: EngineInterface) => ((await $.store.get(KEY)) as Highlight[] | undefined) ?? []
 
@@ -39,7 +43,7 @@ const saveSelection = async ($: EngineInterface) => {
   $.ui.toast(`Highlighted ${hl.text.split('\n').length} line(s)`)
 }
 
-// Scrolls the transcript to the highlight's message. Only works from the person's own press.
+// Scrolls the transcript to the highlight's message and lights it up. Only works from the person's own press.
 const jumpTo = async ($: EngineInterface, hl: Highlight) => {
   if (!hl.messageId) {
     $.ui.toast('This highlight spans several messages: no anchor to jump to.')
@@ -49,9 +53,51 @@ const jumpTo = async ($: EngineInterface, hl: Highlight) => {
   const candidates = hl.messageId.length === 36 ? [hl.messageId] : [`${hl.messageId}-000000000000`]
   for (const requestId of candidates) {
     const moved = await $.ui.scroll({ to: { requestId }, block: 'center' })
-    if (!moved.deny) return
+    if (moved.deny) continue
+    await update($, flash, () => hl.id)
+    $.clock.after(FLASH_MS, () => void update($, flash, current => (current === hl.id ? null : current)))
+    return
   }
   $.ui.toast('Message is not in the drawn transcript rows.')
+}
+
+// Draws a message with its highlighted lines on a coloured background; null when it has none.
+const drawMarks = async ($: EngineInterface, e: RenderInput<'AssistantMessage' | 'UserMessage'>) => {
+  const mine = await read($, list)
+  const here = mine.filter(hl => hl.messageId && e.requestId.startsWith(hl.messageId))
+  if (here.length === 0) return null
+  const parts = segments(e.props.text, here)
+  if (!parts.some(part => part.id)) return null
+  const lit = await read($, flash)
+  const { Box, Markdown, Text } = $.ui.resolve(e)
+  // The engine's row opens with a gutter: `● ` on a reply's first block, `> ` on a prompt, else two cells.
+  const gutter =
+    e.component === 'UserMessage' ? (
+      <Text dimColor>{'> '}</Text>
+    ) : e.props.isFirstOfReply ? (
+      <Text color="claude">{'● '}</Text>
+    ) : (
+      <Text>{'  '}</Text>
+    )
+  // marginTop stands in for the blank row the engine draws above its own message rows.
+  return (
+    <Box flexDirection="row" marginTop={1}>
+      {gutter}
+      <Box flexDirection="column" flexGrow={1}>
+        {rows(parts).map((row, i) =>
+          row.blank ? (
+            <Text> </Text>
+          ) : row.id ? (
+            <Box key={`${row.id}-${i}`} backgroundColor={row.id === lit ? 'warning' : 'subtle'}>
+              <Markdown text={row.text} />
+            </Box>
+          ) : (
+            <Markdown text={row.text} />
+          ),
+        )}
+      </Box>
+    </Box>
+  )
 }
 
 const firstLine = (text: string) => text.trim().split('\n')[0] ?? ''
@@ -76,19 +122,23 @@ export const register: Register = on => {
     return {}
   })
 
-  // Hide the `> /hl` echo row so a highlight adds nothing to the transcript view.
-  on('ui.render', { component: 'UserMessage' }, async ($, e, next) => {
-    if (e.props.text.trim() !== '/hl') return next(e)
-    const { Box } = $.ui.resolve(e)
-    return <Box />
-  })
-
   // Trigger 2: a one-glyph band button. `action` names an engine keybinding action with no handler
   // mounted at the prompt, so the person's chord for it presses this button: no command, no row.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
     const { Button } = $.ui.resolve(e)
     return <Button key="hl" plain label="★" action="footer:dismiss" onPress={() => void saveSelection($)} />
+  })
+
+  on('ui.render', { component: 'AssistantMessage' }, async ($, e, next) => (await drawMarks($, e)) ?? next(e))
+
+  on('ui.render', { component: 'UserMessage' }, async ($, e, next) => {
+    // Hide the `> /hl` echo row so a highlight adds nothing to the transcript view.
+    if (e.props.text.trim() === '/hl') {
+      const { Box } = $.ui.resolve(e)
+      return <Box />
+    }
+    return (await drawMarks($, e)) ?? next(e)
   })
 
   on('command.run', { command: 'highlights' }, async ($, e) => {

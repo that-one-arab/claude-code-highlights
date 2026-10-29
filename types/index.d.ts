@@ -10,6 +10,6 @@ export type Highlight = {
 
 declare module 'claude-code' {
   interface PluginState {
-    highlights: { list: Shaped<Highlight[]>; selected: string | null }
+    highlights: { list: Shaped<Highlight[]>; selected: string | null; flash: string | null }
   }
 }
