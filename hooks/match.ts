@@ -46,11 +46,23 @@ export const segments = (message: string, marks: readonly { id: string; text: st
   return out
 }
 
-export type Row = { blank: true } | { blank?: undefined; id?: string; text: string }
+export type Row =
+  | { blank: true }
+  // A markdown run, marked when `id` is set.
+  | { blank?: undefined; id?: string; text: string; span?: undefined }
+  // One line drawn as plain text with only `text.slice(...span)` marked: a selection of some words.
+  | { blank?: undefined; id: string; text: string; span: [number, number] }
+
+// A source line as the terminal shows it, near enough: bullets, emphasis and code marks removed.
+export const display = (line: string) =>
+  line
+    .replace(/^(\s*)[-*]\s+/, '$1• ')
+    .replace(/\*\*|`/g, '')
 
 // Turns segments into drawable rows: blank lines at a segment's edges become blank rows, so the
 // paragraph gaps a Markdown element would trim at its ends survive; interior blank lines stay markdown.
-export const rows = (parts: readonly Segment[]): Row[] => {
+// A one-line mark that covers part of its line becomes a span row.
+export const rows = (parts: readonly Segment[], marks: readonly { id: string; text: string }[] = []): Row[] => {
   const out: Row[] = []
   for (const part of parts) {
     const lines = part.text.split('\n')
@@ -59,8 +71,36 @@ export const rows = (parts: readonly Segment[]): Row[] => {
     let tail = lines.length
     while (tail > head && lines[tail - 1].trim() === '') tail--
     for (let i = 0; i < head; i++) out.push({ blank: true })
-    if (tail > head) out.push(part.id ? { id: part.id, text: lines.slice(head, tail).join('\n') } : { text: lines.slice(head, tail).join('\n') })
+    if (tail > head) {
+      const text = lines.slice(head, tail).join('\n')
+      const mark = part.id ? marks.find(m => m.id === part.id) : undefined
+      const span = mark && tail - head === 1 ? spanOf(lines[head], mark.text) : null
+      if (part.id && span) out.push({ id: part.id, text: display(lines[head]), span })
+      else out.push(part.id ? { id: part.id, text } : { text })
+    }
     for (let i = tail; i < lines.length; i++) out.push({ blank: true })
   }
   return out
+}
+
+// Where a one-line selection sits inside the displayed line; null when it is the whole line or not found.
+const spanOf = (line: string, selectedText: string): [number, number] | null => {
+  const wanted = selectedText.split('\n').map(normalize).filter(Boolean)
+  if (wanted.length !== 1) return null
+  const shown = display(line)
+  const at = shown.toLowerCase().indexOf(wanted[0])
+  if (at < 0 || wanted[0].length >= normalize(line).length) return null
+  return [at, at + wanted[0].length]
+}
+
+// True when any line of `range` sits inside a fenced code block of `message`.
+export const touchesCode = (message: string, range: { start: number; end: number }) => {
+  let inFence = false
+  const lines = message.split('\n')
+  for (let i = 0; i <= range.end && i < lines.length; i++) {
+    const isFence = /^\s*(```|~~~)/.test(lines[i])
+    if (isFence) inFence = !inFence
+    if (i >= range.start && (inFence || isFence)) return true
+  }
+  return false
 }

@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, RenderInput } from 'claude-code'
 
 import type { Highlight } from '../types'
-import { rows, segments } from './match'
+import { rangeOf, rows, segments, touchesCode } from './match'
 
 const KEY = 'highlights'
 const PANE = 'highlights'
@@ -22,11 +22,26 @@ const writeAll = async ($: EngineInterface, all: Highlight[]) => {
   await update($, list, () => all.filter(h => h.sessionId === sessionId))
 }
 
-// Saves what the person last selected with the mouse; the toast is the only feedback.
+// The markdown of every message row drawn so far, by row id: what a selection is checked against.
+// ponytail: a module Map, refilled as rows re-render after a reload; a row never drawn since is unknown and allowed
+const drawnText = new Map<string, string>()
+
+// Saves what the person last selected with the mouse. Prose only: the in-place mark is the feedback;
+// code and tool output are refused with a toast.
 const saveSelection = async ($: EngineInterface) => {
   const picked = await $.ui.selection()
   if (!picked?.text.trim()) {
     $.ui.toast('Nothing selected. Drag over text first.')
+    return
+  }
+  if (picked.requestId?.startsWith('toolu_')) {
+    $.ui.toast('Tool output can’t be highlighted, only text.')
+    return
+  }
+  const source = picked.requestId && drawnText.get(picked.requestId)
+  const range = source ? rangeOf(source, picked.text) : null
+  if (source && range && touchesCode(source, range)) {
+    $.ui.toast('Code lines can’t be highlighted, only text.')
     return
   }
   const hl: Highlight = {
@@ -40,7 +55,7 @@ const saveSelection = async ($: EngineInterface) => {
     createdAt: new Date(await $.clock.now()).toISOString(),
   }
   await writeAll($, [...(await readAll($)), hl])
-  $.ui.toast(`Highlighted ${hl.text.split('\n').length} line(s)`)
+  if (!hl.messageId) $.ui.toast('Saved. It spans several messages, so it has no in-place mark.')
 }
 
 // Scrolls the transcript to the highlight's message and lights it up. Only works from the person's own press.
@@ -63,6 +78,7 @@ const jumpTo = async ($: EngineInterface, hl: Highlight) => {
 
 // Draws a message with its highlighted lines on a coloured background; null when it has none.
 const drawMarks = async ($: EngineInterface, e: RenderInput<'AssistantMessage' | 'UserMessage'>) => {
+  drawnText.set(e.requestId, e.props.text)
   const mine = await read($, list)
   const here = mine.filter(hl => hl.messageId && e.requestId.startsWith(hl.messageId))
   if (here.length === 0) return null
@@ -84,9 +100,15 @@ const drawMarks = async ($: EngineInterface, e: RenderInput<'AssistantMessage' |
     <Box flexDirection="row" marginTop={1}>
       {gutter}
       <Box flexDirection="column" flexGrow={1}>
-        {rows(parts).map((row, i) =>
+        {rows(parts, here).map((row, i) =>
           row.blank ? (
             <Text> </Text>
+          ) : row.span ? (
+            <Text>
+              {row.text.slice(0, row.span[0])}
+              <Text backgroundColor={row.id === lit ? 'warning' : 'subtle'}>{row.text.slice(row.span[0], row.span[1])}</Text>
+              {row.text.slice(row.span[1])}
+            </Text>
           ) : row.id ? (
             <Box key={`${row.id}-${i}`} backgroundColor={row.id === lit ? 'warning' : 'subtle'}>
               <Markdown text={row.text} />
