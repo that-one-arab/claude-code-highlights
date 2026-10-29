@@ -1,7 +1,7 @@
 {
   "$schema": "https://www.schemastore.org/claude-code-marketplace.json",
   "name": "highlights",
-  "description": "Highlight lines in your Claude Code transcript, add notes, and jump back to them later.",
+  "description": "Highlight lines in your Claude Code transcript and jump back to them later.",
   "owner": {
     "name": "Muhammed Al-Dulaimi",
     "url": "https://github.com/that-one-arab"

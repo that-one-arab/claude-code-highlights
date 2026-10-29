@@ -51,7 +51,6 @@ const saveSelection = async ($: EngineInterface) => {
     // The newest message's row id carries a zeroed last segment: keep the stable prefix.
     messageId: picked.requestId?.replace(/-0{12}$/, '') ?? null,
     text: picked.text,
-    note: '',
     createdAt: new Date(await $.clock.now()).toISOString(),
   }
   await writeAll($, [...(await readAll($)), hl])
@@ -184,9 +183,8 @@ export const register: Register = on => {
     return {}
   })
 
-  on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e, next) => {
-    if (e.surface === 'mobile') return next(e) // no Input element there
-    const { Box, Text, Button, Input } = $.ui.resolve(e)
+  on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
+    const { Box, Text, Button } = $.ui.resolve(e)
     const mine = await read($, list)
     const pickedId = await read($, selected)
     const picked = mine.find(item => item.id === pickedId)
@@ -210,19 +208,7 @@ export const register: Register = on => {
           </Button>
         ))}
         {picked && (
-          <Box flexDirection="column" marginTop={1} borderStyle="single" borderDimColor paddingX={1}>
-            <Text>{picked.text}</Text>
-            <Input
-              key="note"
-              label="Note: "
-              placeholder="type a note, Enter saves"
-              value={picked.note}
-              onSubmit={async note => {
-                await writeAll($, (await readAll($)).map(item => (item.id === picked.id ? { ...item, note } : item)))
-                $.ui.toast('Note saved')
-              }}
-            />
-            {picked.note && <Text dimColor>{picked.note}</Text>}
+          <Box marginTop={1}>
             <Button
               key="delete"
               plain

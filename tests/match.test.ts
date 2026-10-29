@@ -21,7 +21,7 @@ test('a rendered selection maps back to markdown lines', async () => {
 test('segments group lines by the mark that covers them', async () => {
   const parts = segments(message, [{ id: 'a', text: '• Route 2, the band button.' }])
   expect(parts.map(p => p.id ?? '-')).toEqual(['-', 'a', '-'])
-  expect(parts[1].text).toBe('- Route 2, the band button.')
+  expect(parts[1]?.text).toBe('- Route 2, the band button.')
 })
 
 test('rows keep the blank lines around a mark as blank rows', async () => {

@@ -4,7 +4,6 @@ export type Highlight = {
   cwd: string
   messageId: string | null
   text: string
-  note: string
   createdAt: string
 }
 

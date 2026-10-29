@@ -16,11 +16,12 @@ const matches = (line: string, wanted: string) =>
 export const rangeOf = (message: string, selected: string) => {
   const lines = message.split('\n').map(normalize)
   const wanted = selected.split('\n').map(normalize).filter(Boolean)
-  if (wanted.length === 0) return null
-  const start = lines.findIndex(line => matches(line, wanted[0]))
+  const first = wanted[0]
+  if (!first) return null
+  const start = lines.findIndex(line => matches(line, first))
   if (start < 0) return null
   if (wanted.length === 1) return { start, end: start }
-  const last = wanted[wanted.length - 1]
+  const last = wanted[wanted.length - 1] ?? first
   const end = lines.findIndex((line, i) => i > start && matches(line, last))
   return { start, end: end < 0 ? start : end }
 }
@@ -67,15 +68,16 @@ export const rows = (parts: readonly Segment[], marks: readonly { id: string; te
   for (const part of parts) {
     const lines = part.text.split('\n')
     let head = 0
-    while (head < lines.length && lines[head].trim() === '') head++
+    while (head < lines.length && lines[head]?.trim() === '') head++
     let tail = lines.length
-    while (tail > head && lines[tail - 1].trim() === '') tail--
+    while (tail > head && lines[tail - 1]?.trim() === '') tail--
     for (let i = 0; i < head; i++) out.push({ blank: true })
     if (tail > head) {
       const text = lines.slice(head, tail).join('\n')
       const mark = part.id ? marks.find(m => m.id === part.id) : undefined
-      const span = mark && tail - head === 1 ? spanOf(lines[head], mark.text) : null
-      if (part.id && span) out.push({ id: part.id, text: display(lines[head]), span })
+      // One line in the run: `text` is that line.
+      const span = mark && tail - head === 1 ? spanOf(text, mark.text) : null
+      if (part.id && span) out.push({ id: part.id, text: display(text), span })
       else out.push(part.id ? { id: part.id, text } : { text })
     }
     for (let i = tail; i < lines.length; i++) out.push({ blank: true })
@@ -85,12 +87,11 @@ export const rows = (parts: readonly Segment[], marks: readonly { id: string; te
 
 // Where a one-line selection sits inside the displayed line; null when it is the whole line or not found.
 const spanOf = (line: string, selectedText: string): [number, number] | null => {
-  const wanted = selectedText.split('\n').map(normalize).filter(Boolean)
-  if (wanted.length !== 1) return null
-  const shown = display(line)
-  const at = shown.toLowerCase().indexOf(wanted[0])
-  if (at < 0 || wanted[0].length >= normalize(line).length) return null
-  return [at, at + wanted[0].length]
+  const [wanted, ...more] = selectedText.split('\n').map(normalize).filter(Boolean)
+  if (!wanted || more.length > 0) return null
+  const at = display(line).toLowerCase().indexOf(wanted)
+  if (at < 0 || wanted.length >= normalize(line).length) return null
+  return [at, at + wanted.length]
 }
 
 // True when any line of `range` sits inside a fenced code block of `message`.
@@ -98,7 +99,7 @@ export const touchesCode = (message: string, range: { start: number; end: number
   let inFence = false
   const lines = message.split('\n')
   for (let i = 0; i <= range.end && i < lines.length; i++) {
-    const isFence = /^\s*(```|~~~)/.test(lines[i])
+    const isFence = /^\s*(```|~~~)/.test(lines[i] ?? '')
     if (isFence) inFence = !inFence
     if (i >= range.start && (inFence || isFence)) return true
   }
