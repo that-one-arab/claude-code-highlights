@@ -1,0 +1,17 @@
+{
+  "$schema": "https://www.schemastore.org/claude-code-marketplace.json",
+  "name": "highlights",
+  "description": "Highlight lines in your Claude Code transcript, add notes, and jump back to them later.",
+  "owner": {
+    "name": "Muhammed Al-Dulaimi",
+    "url": "https://github.com/that-one-arab"
+  },
+  "plugins": [
+    {
+      "name": "highlights",
+      "description": "Select transcript text with the mouse, save it as a highlight, review highlights in a pane.",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}
