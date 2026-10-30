@@ -63,6 +63,17 @@ test('a message draws a few selected words inside a marked Text', async ($, on) 
   await ui.unmount()
 })
 
+test('a pane taller than its window marks what lies below', async ($, on) => {
+  const two = { ...one, id: 'h2' }
+  on('state.get', { key: 'list' }, () => ({ value: { value: { shape: 'hl-1', value: [one, two] }, version: 1 } }))
+  on('state.get', { key: 'selected' }, () => ({ value: { value: null, version: 0 } }))
+
+  const ui = await $.ui.mount({ ...PANE, props: { ...PANE.props, scroll: { offset: 0, bodyRows: 3 } }, surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /▼ 1 more/ }))?.text).toBe(' ▼ 1 more ')
+  expect(await ui.find({ type: 'Text', text: /▲/ })).toBe(undefined)
+  await ui.unmount()
+})
+
 test('an empty pane says so', async ($, on) => {
   on('state.get', () => ({ value: { value: undefined, version: 0 } }))
 

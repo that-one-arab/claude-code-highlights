@@ -2,6 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, RenderInput } from 'claude-code'
 
 import type { Highlight } from '../types'
+import { paneLayout } from './layout'
 import { rangeOf, rows, segments, touchesCode } from './match'
 
 const KEY = 'highlights'
@@ -191,6 +192,11 @@ export const register: Register = on => {
       return <Text dimColor>No highlights yet. Select text in the transcript, then press your key.</Text>
     }
 
+    // The scroll window over the tree, and where each highlight sits in it.
+    const { offset, bodyRows } = e.props.scroll
+    const { starts, total } = paneLayout(mine.map(item => item.text), e.props.bodyColumns)
+    const bottom = offset + bodyRows
+
     // `gap` leaves a blank row between highlights and before the footer.
     return (
       <Box flexDirection="column" gap={1}>
@@ -225,7 +231,21 @@ export const register: Register = on => {
         ) : (
           <Text dimColor>Click a highlight to jump to it.</Text>
         )}
+        {/* Scroll markers, painted over the window's first and last row at the right edge. */}
+        {offset > 0 && (
+          <Box position="absolute" top={offset} right={0}>
+            <Text color="claude">{hidden('▲', starts.filter(start => start < offset).length)}</Text>
+          </Box>
+        )}
+        {total > bottom && (
+          <Box position="absolute" top={bottom - 1} right={0}>
+            <Text color="claude">{hidden('▼', starts.filter(start => start >= bottom).length)}</Text>
+          </Box>
+        )}
       </Box>
     )
   })
 }
+
+// A scroll marker's text: how many highlights begin beyond the window that way, or just "more".
+const hidden = (glyph: string, n: number) => (n > 0 ? ` ${glyph} ${n} more ` : ` ${glyph} more `)
