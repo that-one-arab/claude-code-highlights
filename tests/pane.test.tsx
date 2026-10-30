@@ -23,26 +23,26 @@ const one = {
   createdAt: '2026-10-29T00:00:00Z',
 }
 
-test('the pane lists a stored highlight by its first line', async ($, on) => {
+test('the pane lists a stored highlight with its whole text', async ($, on) => {
   on('state.get', { key: 'list' }, () => ({ value: { value: { shape: 'hl-1', value: [one] }, version: 1 } }))
   on('state.get', { key: 'selected' }, () => ({ value: { value: null, version: 0 } }))
 
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   const row = await ui.find({ type: 'Button', key: 'h1' })
-  expect(row?.text).toBe('  1. Hello world +1 line')
+  expect(row?.text).toBe('Hello world\nsecond line')
+  expect((await ui.find({ type: 'Text', text: /^ {2}1\. $/ }))?.text).toBe('  1. ')
   expect(await ui.find({ type: 'Button', key: 'delete' })).toBe(undefined)
   expect((await ui.find({ type: 'Text', text: /Click a highlight/ }))?.text).toMatch(/jump/)
   await ui.unmount()
 })
 
-test('a selected highlight shows only a delete button under the list', async ($, on) => {
+test('a selected highlight is marked and shows a delete button under the list', async ($, on) => {
   on('state.get', { key: 'list' }, () => ({ value: { value: { shape: 'hl-1', value: [one] }, version: 1 } }))
   on('state.get', { key: 'selected' }, () => ({ value: { value: 'h1', version: 1 } }))
 
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect((await ui.find({ type: 'Button', key: 'h1' }))?.text).toBe('▶ 1. Hello world +1 line')
+  expect((await ui.find({ type: 'Text', text: /^▶ 1\. $/ }))?.text).toBe('▶ 1. ')
   expect((await ui.find({ type: 'Button', key: 'delete' }))?.text).toBe('Delete this highlight')
-  expect(await ui.find({ type: 'Text', text: /second line/ })).toBe(undefined)
   await ui.unmount()
 })
 

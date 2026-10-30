@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, RenderInput } from 'claude-code'
 
 import type { Highlight } from '../types'
-import { listRow, rangeOf, rows, segments, touchesCode } from './match'
+import { rangeOf, rows, segments, touchesCode } from './match'
 
 const KEY = 'highlights'
 const PANE = 'highlights'
@@ -194,22 +194,24 @@ export const register: Register = on => {
     // `gap` leaves a blank row between highlights and before the footer.
     return (
       <Box flexDirection="column" gap={1}>
-        {mine.map((item, i) => {
-          const row = listRow(item.text, `${item.id === pickedId ? '▶ ' : '  '}${i + 1}. `, e.props.bodyColumns)
-          return (
-            <Button
-              key={item.id}
-              plain
-              onPress={async () => {
-                await update($, selected, () => item.id)
-                await jumpTo($, item)
-              }}
-            >
-              {row.head}
-              {row.more && <Text dimColor>{row.more}</Text>}
-            </Button>
-          )
-        })}
+        {mine.map((item, i) => (
+          // The number sits in its own column, so the text wraps under itself, not under the number.
+          <Box key={item.id} flexDirection="row">
+            <Text dimColor={item.id !== pickedId}>{`${item.id === pickedId ? '▶ ' : '  '}${i + 1}. `}</Text>
+            <Box flexGrow={1} flexShrink={1}>
+              <Button
+                key={item.id}
+                plain
+                onPress={async () => {
+                  await update($, selected, () => item.id)
+                  await jumpTo($, item)
+                }}
+              >
+                {item.text.trim()}
+              </Button>
+            </Box>
+          </Box>
+        ))}
         {picked ? (
           <Button
             key="delete"

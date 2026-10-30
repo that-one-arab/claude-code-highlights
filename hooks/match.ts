@@ -60,19 +60,6 @@ export const display = (line: string) =>
     .replace(/^(\s*)[-*]\s+/, '$1• ')
     .replace(/\*\*|`/g, '')
 
-// One pane row for a highlight: `prefix`, then its first line cut to fit `width` cells, and a
-// `more` suffix (drawn dim) counting the lines the row leaves out.
-// ponytail: counts string length as cells; wide glyphs (emoji, CJK) overrun by a cell each
-export const listRow = (text: string, prefix: string, width: number) => {
-  const lines = text.trim().split('\n')
-  const hidden = lines.length - 1
-  const more = hidden > 0 ? ` +${hidden} ${hidden === 1 ? 'line' : 'lines'}` : ''
-  const room = Math.max(8, width - prefix.length - more.length)
-  const first = lines[0] ?? ''
-  const head = first.length > room ? `${first.slice(0, room - 1)}…` : first
-  return { head: prefix + head, more }
-}
-
 // Turns segments into drawable rows: blank lines at a segment's edges become blank rows, so the
 // paragraph gaps a Markdown element would trim at its ends survive; interior blank lines stay markdown.
 // A one-line mark that covers part of its line becomes a span row.
