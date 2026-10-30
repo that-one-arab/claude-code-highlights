@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { rangeOf, rows, segments, touchesCode } from '../hooks/match'
+import { listRow, rangeOf, rows, segments, touchesCode } from '../hooks/match'
 
 const message = [
   '**Changed:** `/hl` now returns no output row.',
@@ -36,6 +36,15 @@ test('a few selected words become a span row on their displayed line', async () 
   const row = drawn.find(r => !r.blank && r.id === 'w')
   expect(row && !row.blank && row.span ? row.text.slice(...row.span) : null).toBe('the band button')
   expect(row && !row.blank ? row.text : null).toBe('• Route 2, the band button.')
+})
+
+test('a pane row fits its width and counts the hidden lines', async () => {
+  const long = listRow('one two three four five six seven eight nine ten\nb\nc', '  1. ', 30)
+  expect(long.more).toBe(' +2 lines')
+  expect(long.head.length + long.more.length).toBe(30)
+  expect(long.head.endsWith('…')).toBe(true)
+  const short = listRow('short', '▶ 2. ', 30)
+  expect(short).toEqual({ head: '▶ 2. short', more: '' })
 })
 
 test('touchesCode tells fenced lines from prose', async () => {

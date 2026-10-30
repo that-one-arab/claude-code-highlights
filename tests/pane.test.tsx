@@ -29,8 +29,9 @@ test('the pane lists a stored highlight by its first line', async ($, on) => {
 
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   const row = await ui.find({ type: 'Button', key: 'h1' })
-  expect(row?.text).toBe('  1. Hello world')
+  expect(row?.text).toBe('  1. Hello world +1 line')
   expect(await ui.find({ type: 'Button', key: 'delete' })).toBe(undefined)
+  expect((await ui.find({ type: 'Text', text: /Click a highlight/ }))?.text).toMatch(/jump/)
   await ui.unmount()
 })
 
@@ -39,7 +40,7 @@ test('a selected highlight shows only a delete button under the list', async ($,
   on('state.get', { key: 'selected' }, () => ({ value: { value: 'h1', version: 1 } }))
 
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect((await ui.find({ type: 'Button', key: 'h1' }))?.text).toBe('▶ 1. Hello world')
+  expect((await ui.find({ type: 'Button', key: 'h1' }))?.text).toBe('▶ 1. Hello world +1 line')
   expect((await ui.find({ type: 'Button', key: 'delete' }))?.text).toBe('Delete this highlight')
   expect(await ui.find({ type: 'Text', text: /second line/ })).toBe(undefined)
   await ui.unmount()

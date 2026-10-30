@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, RenderInput } from 'claude-code'
 
 import type { Highlight } from '../types'
-import { rangeOf, rows, segments, touchesCode } from './match'
+import { listRow, rangeOf, rows, segments, touchesCode } from './match'
 
 const KEY = 'highlights'
 const PANE = 'highlights'
@@ -121,8 +121,6 @@ const drawMarks = async ($: EngineInterface, e: RenderInput<'AssistantMessage' |
   )
 }
 
-const firstLine = (text: string) => text.trim().split('\n')[0] ?? ''
-
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({ name: 'hl', description: 'Save the selected transcript text as a highlight' })
@@ -193,33 +191,37 @@ export const register: Register = on => {
       return <Text dimColor>No highlights yet. Select text in the transcript, then press your key.</Text>
     }
 
+    // `gap` leaves a blank row between highlights and before the footer.
     return (
-      <Box flexDirection="column">
-        {mine.map((item, i) => (
-          <Button
-            key={item.id}
-            plain
-            onPress={async () => {
-              await update($, selected, () => item.id)
-              await jumpTo($, item)
-            }}
-          >
-            {item.id === pickedId ? '▶ ' : '  '}{i + 1}. {firstLine(item.text)}
-          </Button>
-        ))}
-        {picked && (
-          <Box marginTop={1}>
+      <Box flexDirection="column" gap={1}>
+        {mine.map((item, i) => {
+          const row = listRow(item.text, `${item.id === pickedId ? '▶ ' : '  '}${i + 1}. `, e.props.bodyColumns)
+          return (
             <Button
-              key="delete"
+              key={item.id}
               plain
               onPress={async () => {
-                await writeAll($, (await readAll($)).filter(item => item.id !== picked.id))
-                await update($, selected, () => null)
+                await update($, selected, () => item.id)
+                await jumpTo($, item)
               }}
             >
-              Delete this highlight
+              {row.head}
+              {row.more && <Text dimColor>{row.more}</Text>}
             </Button>
-          </Box>
+          )
+        })}
+        {picked ? (
+          <Button
+            key="delete"
+            onPress={async () => {
+              await writeAll($, (await readAll($)).filter(item => item.id !== picked.id))
+              await update($, selected, () => null)
+            }}
+          >
+            Delete this highlight
+          </Button>
+        ) : (
+          <Text dimColor>Click a highlight to jump to it.</Text>
         )}
       </Box>
     )
