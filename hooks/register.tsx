@@ -104,11 +104,17 @@ const drawMarks = async ($: EngineInterface, e: RenderInput<'AssistantMessage' |
           row.blank ? (
             <Text> </Text>
           ) : row.span ? (
-            <Text>
-              {row.text.slice(0, row.span[0])}
-              <Text backgroundColor={row.id === lit ? 'warning' : 'subtle'}>{row.text.slice(row.span[0], row.span[1])}</Text>
-              {row.text.slice(row.span[1])}
-            </Text>
+            // The list marker sits in its own column, so a wrapped line continues under its text as Markdown draws it.
+            <Box key={`${row.id}-${i}`} flexDirection="row">
+              {row.indent > 0 && <Text>{row.text.slice(0, row.indent)}</Text>}
+              <Box flexGrow={1} flexShrink={1}>
+                <Text>
+                  {row.text.slice(row.indent, row.span[0])}
+                  <Text backgroundColor={row.id === lit ? 'warning' : 'subtle'}>{row.text.slice(row.span[0], row.span[1])}</Text>
+                  {row.text.slice(row.span[1])}
+                </Text>
+              </Box>
+            </Box>
           ) : row.id ? (
             <Box key={`${row.id}-${i}`} backgroundColor={row.id === lit ? 'warning' : 'subtle'}>
               <Markdown text={row.text} />

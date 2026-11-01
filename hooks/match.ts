@@ -52,13 +52,17 @@ export type Row =
   // A markdown run, marked when `id` is set.
   | { blank?: undefined; id?: string; text: string; span?: undefined }
   // One line drawn as plain text with only `text.slice(...span)` marked: a selection of some words.
-  | { blank?: undefined; id: string; text: string; span: [number, number] }
+  // `indent` is the width of its list marker (`1. `, `  • `), drawn in its own column so the line wraps as Markdown wraps it.
+  | { blank?: undefined; id: string; text: string; span: [number, number]; indent: number }
 
 // A source line as the terminal shows it, near enough: bullets, emphasis and code marks removed.
 export const display = (line: string) =>
   line
     .replace(/^(\s*)[-*]\s+/, '$1• ')
     .replace(/\*\*|`/g, '')
+
+// Cells taken by a displayed line's list marker, indentation included; 0 when it is not a list item.
+const markerWidth = (line: string) => /^\s*(?:•|\d+[.)])\s+/.exec(line)?.[0].length ?? 0
 
 // Turns segments into drawable rows: blank lines at a segment's edges become blank rows, so the
 // paragraph gaps a Markdown element would trim at its ends survive; interior blank lines stay markdown.
@@ -77,7 +81,10 @@ export const rows = (parts: readonly Segment[], marks: readonly { id: string; te
       const mark = part.id ? marks.find(m => m.id === part.id) : undefined
       // One line in the run: `text` is that line.
       const span = mark && tail - head === 1 ? spanOf(text, mark.text) : null
-      if (part.id && span) out.push({ id: part.id, text: display(text), span })
+      if (part.id && span) {
+        const shown = display(text)
+        out.push({ id: part.id, text: shown, span, indent: Math.min(markerWidth(shown), span[0]) })
+      }
       else out.push(part.id ? { id: part.id, text } : { text })
     }
     for (let i = tail; i < lines.length; i++) out.push({ blank: true })

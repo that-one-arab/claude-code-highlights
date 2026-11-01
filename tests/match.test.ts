@@ -36,6 +36,14 @@ test('a few selected words become a span row on their displayed line', async () 
   const row = drawn.find(r => !r.blank && r.id === 'w')
   expect(row && !row.blank && row.span ? row.text.slice(...row.span) : null).toBe('the band button')
   expect(row && !row.blank ? row.text : null).toBe('• Route 2, the band button.')
+  expect(row && !row.blank ? row.indent : null).toBe(2)
+})
+
+test('a span row on a numbered item carries its marker width', async () => {
+  const numbered = ['1. The core flow. A phone enrols a key.', '2. Attestation. The hardest part.'].join('\n')
+  const marks = [{ id: 'n', text: 'The core flow. A phone enrols' }]
+  const row = rows(segments(numbered, marks), marks).find(r => !r.blank && r.id === 'n')
+  expect(row && !row.blank && row.span ? [row.indent, row.text.slice(...row.span)] : null).toEqual([3, 'The core flow. A phone enrols'])
 })
 
 test('touchesCode tells fenced lines from prose', async () => {
